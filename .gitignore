@@ -1,0 +1,9 @@
+# Compiled python
+*.pyc
+__pycache__/
+
+# Any tests
+*test*
+
+# secrets
+*secret*
