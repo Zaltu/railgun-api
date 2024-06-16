@@ -7,3 +7,7 @@ __pycache__/
 
 # secrets
 *secret*
+
+# Dist
+dist/
+*egg*
