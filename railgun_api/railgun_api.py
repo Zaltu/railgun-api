@@ -13,7 +13,8 @@ class Railgun():
     def __init__(self, host, schema):
         self.URL = host
         self.default_schema = schema
-        self.stellar = Stellar
+        self.field = StellarField
+        self.entity = StellarEntity
         # TODO auth would be done here
         # IF THERE WAS ANY!!!
         # At least validate the URL is real
@@ -21,9 +22,14 @@ class Railgun():
         requests.get(self.URL+"/heartbeat").raise_for_status()
 
 
-    def find(self, entity_type, filters, return_fields, pagination=10000, page=1, schema=None):  # TODO pagination mechanic will change with RPC
+    def find(self, entity_type, filters=None, return_fields=[], pagination=10000, page=1, schema=None):  # TODO pagination mechanic will change with RPC
         """
         """
+        if type(filters) == list:  # Simplify top-level for simple ops
+            filters = {
+                "filter_operator": "AND",
+                "filters": filters
+            }
         READ_REQUEST = {
             "schema": schema or self.default_schema,
             "entity": entity_type,
@@ -112,8 +118,3 @@ class StellarEntity:
 
     def delete():
         raise NotImplementedError
-
-
-class Stellar:
-    field = StellarField
-    entity = StellarEntity
