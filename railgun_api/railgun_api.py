@@ -13,8 +13,8 @@ class Railgun():
     def __init__(self, host, schema):
         self.URL = host
         self.default_schema = schema
-        self.field = StellarField
-        self.entity = StellarEntity
+        self.field = StellarField(self)
+        self.entity = StellarEntity(self)
         # TODO auth would be done here
         # IF THERE WAS ANY!!!
         # At least validate the URL is real
@@ -25,7 +25,7 @@ class Railgun():
     def find(self, entity_type, filters=None, return_fields=[], pagination=10000, page=1, schema=None):  # TODO pagination mechanic will change with RPC
         """
         """
-        if type(filters) == list:  # Simplify top-level for simple ops
+        if filters and type(filters) == list:  # Simplify top-level for simple ops
             filters = {
                 "filter_operator": "AND",
                 "filters": filters
@@ -95,26 +95,89 @@ class Railgun():
         resp = requests.post(self.URL+"/batch", json=BATCH_REQUEST)
         resp.raise_for_status()
         return resp.json()
+    
+
+    def telescope(self):
+        raise NotImplementedError
 
 
 
 class StellarField:
-    def create():
+    def __init__(self, railgun):
+        self.railgun = railgun
+
+
+    def create(self, entity, field_code, field_name, field_type, options=None, schema=None):
+        FIELD_CREATE_REQUEST = {
+            "part": "field",
+            "request_type": "create",
+            "schema": schema or self.railgun.default_schema,
+            "entity": entity,
+            "data": {
+                "code": field_code,
+                "name": field_name,
+                "type": field_type,
+                "options": options
+            }
+        }
+        resp = requests.post(self.railgun.URL+"/stellar", json=FIELD_CREATE_REQUEST)
+        resp.raise_for_status()
+        return resp.json()
+
+
+    def update(self):
         raise NotImplementedError
 
-    def update():
-        raise NotImplementedError
 
-    def delete():
-        raise NotImplementedError
+    def delete(self, entity, field_code, schema=None):
+        FIELD_DELETE_REQUEST = {
+            "part": "field",
+            "request_type": "delete",
+            "schema": schema or self.railgun.default_schema,
+            "entity": entity,
+            "data": {
+                "code": field_code,
+            }
+        }
+        resp = requests.post(self.railgun.URL+"/stellar", json=FIELD_DELETE_REQUEST)
+        resp.raise_for_status()
+        return resp.json()
 
 
 class StellarEntity:
-    def create():
+    def __init__(self, railgun):
+        self.railgun = railgun
+
+
+    def create(self, entity_code, entity_soloname, entity_multiname, schema=None):
+        TABLE_CREATE_REQUEST = {
+            "part": "entity",
+            "request_type": "create",
+            "schema": schema or self.railgun.default_schema,
+            "data": {
+                "code": entity_code,
+                "soloname": entity_soloname,
+                "multiname": entity_multiname
+            }
+        }
+        resp = requests.post(self.railgun.URL+"/stellar", json=TABLE_CREATE_REQUEST)
+        resp.raise_for_status()
+        return resp.json()
+
+
+    def update(self):
         raise NotImplementedError
 
-    def update():
-        raise NotImplementedError
 
-    def delete():
-        raise NotImplementedError
+    def delete(self, entity, schema=None):
+        TABLE_CREATE_REQUEST = {
+            "part": "entity",
+            "request_type": "delete",
+            "schema": schema or self.railgun.default_schema,
+            "data": {
+                "type": entity
+            }
+        }
+        resp = requests.post(self.railgun.URL+"/stellar", json=TABLE_CREATE_REQUEST)
+        resp.raise_for_status()
+        return resp.json()
