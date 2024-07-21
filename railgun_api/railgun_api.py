@@ -22,7 +22,7 @@ class Railgun():
         requests.get(self.URL+"/heartbeat").raise_for_status()
 
 
-    def find(self, entity_type, filters=None, return_fields=[], pagination=10000, page=1, schema=None):  # TODO pagination mechanic will change with RPC
+    def find(self, entity_type, filters=None, return_fields=[], pagination=5000, page=1, show_archived=False, include_count=False, schema=None):  # TODO pagination mechanic will change with RPC
         """
         """
         if filters and type(filters) == list:  # Simplify top-level for simple ops
@@ -37,7 +37,9 @@ class Railgun():
                 "return_fields": return_fields,
                 "filters": filters or None,  # Prevent weird issues with []
                 "pagination": pagination,
-                "page": page
+                "page": page,
+                "show_archived": show_archived,
+                "include_count": include_count
             }
         }
         resp = requests.post(self.URL+"/read", json=READ_REQUEST)
