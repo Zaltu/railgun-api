@@ -10,16 +10,42 @@ import requests
 
 
 class Railgun():
-    def __init__(self, host, schema):
+    def __init__(self, host, username, password, schema):
         self.URL = host
         self.default_schema = schema
         self.field = StellarField(self)
         self.entity = StellarEntity(self)
-        # TODO auth would be done here
-        # IF THERE WAS ANY!!!
-        # At least validate the URL is real
-        # I knew heartbeat would come in handy
-        requests.get(self.URL+"/heartbeat").raise_for_status()
+
+        self.RG_AUTH_HEADER = {
+            "Authorization": "Bearer {token}".format(
+                token=self._login(username, password)
+            )
+        }
+
+
+    def _login(self, username, password):
+        """
+        Authenticate credentials and return the access token.
+
+        :param str username: username to log in with
+        :param str password: password to log in with
+
+        :raises AuthenticationException: if unable to authenticate the given credentials
+        :returns: authorization header access token
+        :rtype: str
+        """
+        LOGIN_BODY = f"grant_type=password&username={username}&password={password}"
+        LOGIN_HEADERS = {"Content-Type": "application/x-www-form-urlencoded"}
+        response = requests.post(
+            self.URL+"/login",
+            headers=LOGIN_HEADERS,
+            data=LOGIN_BODY
+        )
+        if response.status_code in [401, 405]:
+            raise AuthenticationException(
+                "Cannot authenticate these credentials with this endpoint."
+            )
+        return response.json()["access_token"]
 
 
     def find(self, entity_type, filters=None, return_fields=[], pagination=5000, page=1, show_archived=False, include_count=False, schema=None):  # TODO pagination mechanic will change with RPC
@@ -42,7 +68,7 @@ class Railgun():
                 "include_count": include_count
             }
         }
-        resp = requests.post(self.URL+"/read", json=READ_REQUEST)
+        resp = requests.post(self.URL+"/read", headers=self.RG_AUTH_HEADER, json=READ_REQUEST)
         resp.raise_for_status()
         return resp.json()
 
@@ -55,7 +81,7 @@ class Railgun():
             "entity": entity_type,
             "data": data
         }
-        resp = requests.post(self.URL+"/create", json=CREATE_REQUEST)
+        resp = requests.post(self.URL+"/create", headers=self.RG_AUTH_HEADER, json=CREATE_REQUEST)
         resp.raise_for_status()
         return resp.json()
 
@@ -69,7 +95,7 @@ class Railgun():
             "entity_id": entity_id,
             "data": data
         }
-        resp = requests.post(self.URL+"/update", json=UPDATE_REQUEST)
+        resp = requests.post(self.URL+"/update", headers=self.RG_AUTH_HEADER, json=UPDATE_REQUEST)
         resp.raise_for_status()
         return resp.json()
 
@@ -82,7 +108,7 @@ class Railgun():
             "entity": entity_type,
             "entity_id": entity_id
         }
-        resp = requests.post(self.URL+"/delete", json=DELETE_REQUEST)
+        resp = requests.post(self.URL+"/delete", headers=self.RG_AUTH_HEADER, json=DELETE_REQUEST)
         resp.raise_for_status()
         return resp.json()
 
@@ -94,7 +120,7 @@ class Railgun():
             "schema": schema or self.default_schema,
             "batch": batchData
         }
-        resp = requests.post(self.URL+"/batch", json=BATCH_REQUEST)
+        resp = requests.post(self.URL+"/batch", headers=self.RG_AUTH_HEADER, json=BATCH_REQUEST)
         resp.raise_for_status()
         return resp.json()
     
@@ -122,7 +148,7 @@ class StellarField:
                 "options": options
             }
         }
-        resp = requests.post(self.railgun.URL+"/stellar", json=FIELD_CREATE_REQUEST)
+        resp = requests.post(self.railgun.URL+"/stellar", headers=self.railgun.RG_AUTH_HEADER, json=FIELD_CREATE_REQUEST)
         resp.raise_for_status()
         return resp.json()
 
@@ -141,7 +167,7 @@ class StellarField:
                 "code": field_code,
             }
         }
-        resp = requests.post(self.railgun.URL+"/stellar", json=FIELD_DELETE_REQUEST)
+        resp = requests.post(self.railgun.URL+"/stellar", self.railgun.RG_AUTH_HEADER, json=FIELD_DELETE_REQUEST)
         resp.raise_for_status()
         return resp.json()
 
@@ -162,7 +188,7 @@ class StellarEntity:
                 "multiname": entity_multiname
             }
         }
-        resp = requests.post(self.railgun.URL+"/stellar", json=TABLE_CREATE_REQUEST)
+        resp = requests.post(self.railgun.URL+"/stellar", self.railgun.RG_AUTH_HEADER, json=TABLE_CREATE_REQUEST)
         resp.raise_for_status()
         return resp.json()
 
@@ -180,6 +206,11 @@ class StellarEntity:
                 "type": entity
             }
         }
-        resp = requests.post(self.railgun.URL+"/stellar", json=TABLE_CREATE_REQUEST)
+        resp = requests.post(self.railgun.URL+"/stellar", self.railgun.RG_AUTH_HEADER, json=TABLE_CREATE_REQUEST)
         resp.raise_for_status()
         return resp.json()
+
+
+
+class AuthenticationException(Exception):
+    """Authentication Error"""
