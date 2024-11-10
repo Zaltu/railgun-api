@@ -6,7 +6,9 @@ See ReadMe for usage instructions.
 
 TODO code doc
 """
+import json
 import requests
+from pathlib import Path
 
 
 class Railgun():
@@ -52,6 +54,8 @@ class Railgun():
         """
         """
         if filters and type(filters) == list:  # Simplify top-level for simple ops
+            if type(filters[0]) != list:
+                filters = [filters]
             filters = {
                 "filter_operator": "AND",
                 "filters": filters
@@ -100,13 +104,14 @@ class Railgun():
         return resp.json()
 
 
-    def delete(self, entity_type, entity_id, schema=None):
+    def delete(self, entity_type, entity_id, permanent=False, schema=None):
         """
         """
         DELETE_REQUEST = {
             "schema": schema or self.default_schema,
             "entity": entity_type,
-            "entity_id": entity_id
+            "entity_id": entity_id,
+            "permanent": permanent
         }
         resp = requests.post(self.URL+"/delete", headers=self.RG_AUTH_HEADER, json=DELETE_REQUEST)
         resp.raise_for_status()
@@ -124,6 +129,56 @@ class Railgun():
         resp.raise_for_status()
         return resp.json()
     
+
+    def upload(self, entity, field, path, schema=None):
+        """
+        """
+        path = Path(path)
+        if not path.exists() or path.is_dir():
+            raise UploadFileException("File does not exist:\n%s" % str(path))
+
+        entity["schema"] = schema or self.default_schema
+        entity["field"] = field
+        with open(path, "rb") as infile:
+            resp = requests.post(
+                self.URL+"/upload",
+                headers=self.RG_AUTH_HEADER,
+                files={"file":infile},
+                data={"metadata":json.dumps(entity)}
+            )
+        resp.raise_for_status()
+        return resp.json()
+
+
+    def download(self, remotePath, localPath):
+        """
+        """
+        # Make it easier
+        remotePath = Path(remotePath)
+        localPath = Path(localPath)
+        final_destination = localPath
+
+        if localPath.is_dir():
+            final_destination = final_destination / remotePath.name
+
+        if not final_destination.parent.exists():
+            raise DownloadFileException("Local path does not exist:\n%s" % str(final_destination.parent))
+
+        with requests.post(
+            self.URL+"/download",
+            json={"path": str(remotePath)},
+            headers=self.RG_AUTH_HEADER,
+            stream=True
+        ) as resp:
+            resp.raise_for_status()
+            with open(final_destination, 'wb+') as outfile:
+                # None for max chunk size. If you run into memory issues, you may need to change this.
+                for chunk in resp.iter_content(None):
+                    outfile.write(chunk)
+        return final_destination
+
+
+
 
     def telescope(self):
         raise NotImplementedError
@@ -167,7 +222,7 @@ class StellarField:
                 "code": field_code,
             }
         }
-        resp = requests.post(self.railgun.URL+"/stellar", self.railgun.RG_AUTH_HEADER, json=FIELD_DELETE_REQUEST)
+        resp = requests.post(self.railgun.URL+"/stellar", headers=self.railgun.RG_AUTH_HEADER, json=FIELD_DELETE_REQUEST)
         resp.raise_for_status()
         return resp.json()
 
@@ -188,7 +243,7 @@ class StellarEntity:
                 "multiname": entity_multiname
             }
         }
-        resp = requests.post(self.railgun.URL+"/stellar", self.railgun.RG_AUTH_HEADER, json=TABLE_CREATE_REQUEST)
+        resp = requests.post(self.railgun.URL+"/stellar", headers=self.railgun.RG_AUTH_HEADER, json=TABLE_CREATE_REQUEST)
         resp.raise_for_status()
         return resp.json()
 
@@ -206,7 +261,7 @@ class StellarEntity:
                 "type": entity
             }
         }
-        resp = requests.post(self.railgun.URL+"/stellar", self.railgun.RG_AUTH_HEADER, json=TABLE_CREATE_REQUEST)
+        resp = requests.post(self.railgun.URL+"/stellar", headers=self.railgun.RG_AUTH_HEADER, json=TABLE_CREATE_REQUEST)
         resp.raise_for_status()
         return resp.json()
 
@@ -214,3 +269,9 @@ class StellarEntity:
 
 class AuthenticationException(Exception):
     """Authentication Error"""
+
+class DownloadFileException(Exception):
+    """Can't download a file"""
+
+class UploadFileException(Exception):
+    """Can't upload a file"""
