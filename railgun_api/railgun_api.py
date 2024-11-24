@@ -10,6 +10,8 @@ import json
 import requests
 from pathlib import Path
 
+from railgun_api.consts import RG_FIELD_TYPES
+
 
 class Railgun():
     def __init__(self, host, username, password, schema):
@@ -72,9 +74,7 @@ class Railgun():
                 "include_count": include_count
             }
         }
-        resp = requests.post(self.URL+"/read", headers=self.RG_AUTH_HEADER, json=READ_REQUEST)
-        resp.raise_for_status()
-        return resp.json()
+        return self._makeRGCall(self.URL+"/read", READ_REQUEST)
 
 
     def create(self, entity_type, data, schema=None):
@@ -85,9 +85,7 @@ class Railgun():
             "entity": entity_type,
             "data": data
         }
-        resp = requests.post(self.URL+"/create", headers=self.RG_AUTH_HEADER, json=CREATE_REQUEST)
-        resp.raise_for_status()
-        return resp.json()
+        return self._makeRGCall(self.URL+"/create", CREATE_REQUEST)
 
 
     def update(self, entity_type, entity_id, data, schema=None):
@@ -99,9 +97,7 @@ class Railgun():
             "entity_id": entity_id,
             "data": data
         }
-        resp = requests.post(self.URL+"/update", headers=self.RG_AUTH_HEADER, json=UPDATE_REQUEST)
-        resp.raise_for_status()
-        return resp.json()
+        return self._makeRGCall(self.URL+"/update", UPDATE_REQUEST)
 
 
     def delete(self, entity_type, entity_id, permanent=False, schema=None):
@@ -113,9 +109,7 @@ class Railgun():
             "entity_id": entity_id,
             "permanent": permanent
         }
-        resp = requests.post(self.URL+"/delete", headers=self.RG_AUTH_HEADER, json=DELETE_REQUEST)
-        resp.raise_for_status()
-        return resp.json()
+        return self._makeRGCall(self.URL+"/delete", DELETE_REQUEST)
 
 
     def batch(self, batchData, schema=None):
@@ -125,9 +119,7 @@ class Railgun():
             "schema": schema or self.default_schema,
             "batch": batchData
         }
-        resp = requests.post(self.URL+"/batch", headers=self.RG_AUTH_HEADER, json=BATCH_REQUEST)
-        resp.raise_for_status()
-        return resp.json()
+        return self._makeRGCall(self.URL+"/batch", BATCH_REQUEST)
     
 
     def upload(self, entity, field, path, schema=None):
@@ -178,14 +170,29 @@ class Railgun():
         return final_destination
 
 
-
-
     def telescope(self):
         raise NotImplementedError
 
 
+    def _makeRGCall(self, url, request):
+        """
+        """
+        resp = requests.post(url, headers=self.RG_AUTH_HEADER, json=request)
+        try:
+            resp.raise_for_status()
+        except requests.HTTPError as e:
+            try:
+                # Attempt to add any additional information from the error response ot the request
+                e.add_note(json.loads(resp.content.decode())["detail"])
+            except:
+                raise
+            raise
+        return resp.json()
+
+
 
 class StellarField:
+    types = RG_FIELD_TYPES
     def __init__(self, railgun):
         self.railgun = railgun
 
